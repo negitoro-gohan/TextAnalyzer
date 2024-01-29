@@ -195,6 +195,13 @@ public class FileProcessor
             // 文字列、文字列の行番号を出力
             Console.WriteLine($"{filePath},{lineNumber},\"{EscapeDoubleQuotes(result)}\"");
         }
+        else if (outputFormat == "tsv")
+        {
+            // 改行を削除
+            result = result.Replace("\n", "").Replace("\r", "");
+            // 文字列、文字列の行番号を出力
+            Console.WriteLine($"{filePath}\t{lineNumber}\t\"{result}\"");
+        }
         else
         {
             // 文字列、文字列の行番号を出力
