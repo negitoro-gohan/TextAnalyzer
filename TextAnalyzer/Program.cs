@@ -43,7 +43,7 @@ class Program
                     int totalMatches = 0;
 
                     // フォルダ内のすべてのファイルに対して処理を行う
-                    string[] filePaths = Directory.GetFiles(folderPath);
+                    string[] filePaths = Directory.GetFiles(folderPath,"*",SearchOption.AllDirectories);
 
                     // フォルダ内のすべてのファイルに対して処理を行う
                     foreach (string filePath in filePaths)
