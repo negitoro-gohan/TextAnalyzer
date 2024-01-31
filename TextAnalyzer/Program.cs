@@ -22,47 +22,30 @@ class Program
             try
             {
                 // XML ファイルを読み込み、XDocumentとして扱う
-                XDocument xmlConfig = XDocument.Load(xmlFilePath);
+                XDocument doc = XDocument.Load(xmlFilePath);
 
-                // フォルダパスを XML ファイルから取得
-                string folderPath = xmlConfig.Root?.Element("TargetFolderPath")?.Value ?? null;
-                if (folderPath == null)
+                // ConfigクラスにXMLの内容を格納
+                Config config = new Config
                 {
-                    Console.WriteLine("指定されたフォルダは見つかりませんでした。");
-                    return;
-                }
-                // 除外ファイルパスを XML ファイルから取得
-                string[] IgnoreTables = xmlConfig.Root?.Element("IgnoreTables")?.Elements("Table").Select(e => e.Value).ToArray() ?? Array.Empty<string>();
+                    Targets = doc.Descendants("Target").Select(target => new Target
+                    {
+                        FolderPath = (string)target.Element("FolderPath"),
+                        ResultFilePath = (string)target.Element("ResultFilePath")
+                    }).ToList(),
+                    IgnoreTables = new IgnoreTables
+                    {
+                        Tables = doc.Descendants("IgnoreTables").Elements("Table").Select(table => (string)table).ToList()
+                    },
+                    OutputOption = (string)doc.Descendants("OutputOption").FirstOrDefault()
+                };
 
-                // 出力オプションを XML ファイルから取得
-                string outputOption = xmlConfig.Root?.Element("OutputOption")?.Value ?? null;
 
                 try
                 {
-                    int matchedFiles = 0;
-                    int totalMatches = 0;
-
-                    // フォルダ内のすべてのファイルに対して処理を行う
-                    string[] filePaths = Directory.GetFiles(folderPath,"*",SearchOption.AllDirectories);
-
-                    // フォルダ内のすべてのファイルに対して処理を行う
-                    foreach (string filePath in filePaths)
-                    {
-                        if (Path.GetExtension(filePath).IndexOf(".sql", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            // FileProcessor クラスを使ってファイルの内容を処理
-                            FileProcessor.ProcessSqlFile(filePath, IgnoreTables, outputOption, ref matchedFiles, ref totalMatches);
-                        }
-                        else if (Path.GetExtension(filePath).IndexOf(".cs", StringComparison.OrdinalIgnoreCase) >= 0)
-                        {
-                            // FileProcessor クラスを使ってファイルの内容を処理
-                            FileProcessor.ProcessCsFile(filePath, IgnoreTables, outputOption, ref matchedFiles, ref totalMatches);
-                        }
-                    }
-
-                    Console.WriteLine($"ファイル件数: {filePaths.Length}");
-                    Console.WriteLine($"合致したファイル件数: {matchedFiles}");
-                    Console.WriteLine($"合致した箇所の件数: {totalMatches}");
+                    // FileProcessorクラスをインスタンス化し、Configを渡して処理を実行
+                    FileProcessor fileProcessor = new FileProcessor(config);
+                    fileProcessor.ProcessFiles();
+                    
                 }
                 catch (Exception ex)
                 {
@@ -79,4 +62,6 @@ class Program
             Console.WriteLine("config.xml ファイルが見つかりませんでした。");
         }
     }
+ 
+
 }

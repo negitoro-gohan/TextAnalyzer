@@ -5,10 +5,47 @@ using System.Text.RegularExpressions;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.VisualBasic;
 
-public class FileProcessor
+class FileProcessor
 {
-    internal static void ProcessSqlFile(string filePath, string[] ignoreTables, string outputOption, ref int matchedFiles, ref int totalMatches)
+    private Config config;
+
+    public FileProcessor(Config config)
+    {
+        this.config = config;
+    }
+    public void ProcessFiles()
+    {
+        foreach (var target in config.Targets)
+        {
+            int matchedFiles = 0;
+            int totalMatches = 0;
+
+            // フォルダ内のすべてのファイルに対して処理を行う
+            string[] filePaths = Directory.GetFiles(target.FolderPath, "*", SearchOption.AllDirectories);
+
+            // フォルダ内のすべてのファイルに対して処理を行う
+            foreach (string filePath in filePaths)
+            {
+                if (Path.GetExtension(filePath).IndexOf(".sql", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // FileProcessor クラスを使ってファイルの内容を処理
+                    ProcessSqlFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                }
+                else if (Path.GetExtension(filePath).IndexOf(".cs", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // FileProcessor クラスを使ってファイルの内容を処理
+                    ProcessCsFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                }
+            }
+
+            WriteToFile($"ファイル件数: {filePaths.Length}", target.ResultFilePath);
+            WriteToFile($"合致したファイル件数: {matchedFiles}", target.ResultFilePath);
+            WriteToFile($"合致した箇所の件数: {totalMatches}", target.ResultFilePath);
+        }
+    }
+    private void ProcessSqlFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
     {
         try
         {
@@ -42,7 +79,7 @@ public class FileProcessor
                     int lineNumber = GetLineNumber(fileContent, match.Index + currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase));
                     //Console.WriteLine($"ファイル名: {filePath}({lineNumber})");
                     //Console.WriteLine($"一致箇所: {GetSubstringAfterStart(currentString, "SELECT")}");
-                    OutputResult(filePath, lineNumber, GetSubstringAfterStart(currentString, "SELECT"), outputOption);
+                    OutputResult(filePath, lineNumber, GetSubstringAfterStart(currentString, "SELECT"), outputOption, resultFilePath);
                     // 合致した箇所の総数をインクリメント
                     totalMatches++;
                     matchedCondition = true;
@@ -61,7 +98,7 @@ public class FileProcessor
         }
     }
     // SQLコメントは検索対象外の為、特定の文字列に置き換える
-    private static string ReplaceSqlComments(string input)
+    private string ReplaceSqlComments(string input)
     {
         // 正規表現パターン: /* ～ */
         string blockCommentPattern = @"/\*.*?\*/";
@@ -75,7 +112,7 @@ public class FileProcessor
 
     }
     // 除外条件に一致するかチェック
-    private static bool MatchesExcludePatterns(string text, string[] excludePatterns)
+    private bool MatchesExcludePatterns(string text, List<string> excludePatterns)
     {
         foreach (string pattern in excludePatterns)
         {
@@ -87,7 +124,7 @@ public class FileProcessor
         return false; // 一致しない場合は通常処理
     }
     // 指定されたインデックスの行番号を取得する
-    private static int GetLineNumber(string text, int index)
+    private int GetLineNumber(string text, int index)
     {
         string[] lines = text.Substring(0, index).Split('\n');
         return lines.Length;
@@ -106,7 +143,7 @@ public class FileProcessor
         }
     }
 
-    internal static void ProcessCsFile(string filePath, string[] ignoreTables, string outputOption, ref int matchedFiles, ref int totalMatches)
+    private void ProcessCsFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
     {
         // ファイルの内容を読み込む
         string fileContent = File.ReadAllText(filePath);
@@ -154,7 +191,7 @@ public class FileProcessor
                     //Console.WriteLine($"ファイル名: {filePath}({firstLineNumber})");
                     //Console.WriteLine($"一致箇所: {GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber)}");
 
-                    OutputResult(filePath, firstLineNumber, GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber), outputOption);
+                    OutputResult(filePath, firstLineNumber, GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber), outputOption, resultFilePath);
                     // 合致した箇所の総数をインクリメント
                     totalMatches++;
                     matchedCondition = true;
@@ -167,7 +204,7 @@ public class FileProcessor
             matchedFiles++;
         }
     }
-    static string GetCodeSnippet(string sourceCode, int startLine, int endLine)
+    private string GetCodeSnippet(string sourceCode, int startLine, int endLine)
     {
         string[] lines = sourceCode.Split('\n');
 
@@ -183,7 +220,7 @@ public class FileProcessor
 
         return selectedCode;
     }
-    static void OutputResult(string filePath, int lineNumber, string contents, string outputFormat)
+    private void OutputResult(string filePath, int lineNumber, string contents, string outputFormat, string resultFilePath)
     {
         string result = contents;
 
@@ -193,25 +230,63 @@ public class FileProcessor
             // 改行を削除
             result = result.Replace("\n", "").Replace("\r", "");
             // 文字列、文字列の行番号を出力
-            Console.WriteLine($"{filePath},{lineNumber},\"{EscapeDoubleQuotes(result)}\"");
+            WriteToFile($"{filePath},{lineNumber},\"{EscapeDoubleQuotes(result)}\"", resultFilePath);
         }
         else if (outputFormat == "tsv")
         {
             // 改行を削除
             result = result.Replace("\n", "").Replace("\r", "");
             // 文字列、文字列の行番号を出力
-            Console.WriteLine($"{filePath}\t{lineNumber}\t\"{result}\"");
+            WriteToFile($"{filePath}\t{lineNumber}\t\"{result}\"", resultFilePath);
+           
         }
         else
         {
-            // 文字列、文字列の行番号を出力
-            Console.WriteLine($"ファイル名: {filePath}({lineNumber})");
-            Console.WriteLine($"一致箇所: {contents}");
+
+            WriteToFile($"ファイル名: {filePath}({lineNumber})", resultFilePath);
+            WriteToFile($"一致箇所: {contents}", resultFilePath);
+ 
         }
     }
-    static string EscapeDoubleQuotes(string input)
+    private string EscapeDoubleQuotes(string input)
     {
         // ダブルクォーテーションを2つ続けることでエスケープ
         return input.Replace("\"", "\"\"");
     }
+
+    private void WriteToFile(string content , string filePath)
+    {
+        if (filePath == null)
+        {
+            // 文字列、文字列の行番号を出力
+            Console.WriteLine(content);
+        }
+        else
+        {
+            // ファイルに書き込む
+            using (StreamWriter writer = new StreamWriter(filePath))
+            {
+                writer.WriteLine(content);
+            }
+        }
+        
+    }
+
+}
+class Target
+{
+    public string FolderPath { get; set; }
+    public string ResultFilePath { get; set; }
+}
+
+class IgnoreTables
+{
+    public List<string> Tables { get; set; }
+}
+
+class Config
+{
+    public List<Target> Targets { get; set; }
+    public IgnoreTables IgnoreTables { get; set; }
+    public string OutputOption { get; set; }
 }

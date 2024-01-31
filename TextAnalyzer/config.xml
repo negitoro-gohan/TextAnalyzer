@@ -1,6 +1,13 @@
 <Config>
   <!-- 検索対象のフォルダ -->
-  <TargetFolderPath>D:\work\analysis\sqlserver</TargetFolderPath>
+  <Target>
+    <FolderPath>D:\work\analysis\sqlserver</FolderPath>
+    <ResultFilePath>D:\work\analysis\result.txt</ResultFilePath>
+  </Target>
+  <Target>
+    <FolderPath>D:\work\analysis\sqlserver2</FolderPath>
+  </Target>
+
   <!-- 除外対象のテーブル -->
   <IgnoreTables>
     <Table>TEST</Table>
