@@ -28,7 +28,7 @@ class FileProcessor
             // フォルダ内のすべてのファイルに対して処理を行う
             foreach (string filePath in filePaths)
             {
-                if (Path.GetExtension(filePath).IndexOf(".sql", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (Path.GetExtension(filePath).IndexOf(".sql", StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetExtension(filePath).IndexOf(".txt", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessSqlFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
@@ -116,7 +116,7 @@ class FileProcessor
     {
         foreach (string pattern in excludePatterns)
         {
-            if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+            if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase) || CountString(text, "from") == 1)
             {
                 return true; // 一致する場合は除外
             }
@@ -129,7 +129,7 @@ class FileProcessor
         string[] lines = text.Substring(0, index).Split('\n');
         return lines.Length;
     }
-    static string GetSubstringAfterStart(string inputString, string startSubstring)
+    private string GetSubstringAfterStart(string inputString, string startSubstring)
     {
         int startIndex = inputString.IndexOf(startSubstring, StringComparison.OrdinalIgnoreCase);
         if (startIndex != -1)
@@ -141,6 +141,26 @@ class FileProcessor
         {
             return null;
         }
+    }
+    private int CountString(string search, string target)
+    {
+        int cnt = 0;
+        bool check = true;
+
+        while (check)
+        {
+            if (target.IndexOf(search, System.StringComparison.OrdinalIgnoreCase) == -1)
+            {
+                check = false;
+            }
+            else
+            {
+                target = target.Remove(0, target.IndexOf(search, System.StringComparison.OrdinalIgnoreCase) + 1);
+                cnt++;
+            }
+        }
+
+        return cnt;
     }
 
     private void ProcessCsFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)

@@ -1,5 +1,5 @@
 <Config>
-  <!-- 検索対象のフォルダ -->
+  <!-- 検索対象 -->
   <Target>
     <FolderPath>D:\work\analysis\sqlserver</FolderPath>
     <ResultFilePath>D:\work\analysis\result.txt</ResultFilePath>
@@ -13,6 +13,6 @@
     <Table>TEST</Table>
     <Table>TEST2</Table>
   </IgnoreTables>
-  <!-- 出力時のオプション -->
+  <!-- 出力形式のオプション -->
   <OutputOption>csv</OutputOption>
 </Config>
