@@ -6,6 +6,7 @@
   </Target>
   <Target>
     <FolderPath>D:\work\analysis\sqlserver2</FolderPath>
+    <ResultFilePath>D:\work\analysis\result2.txt</ResultFilePath>
   </Target>
 
   <!-- 除外対象のテーブル -->

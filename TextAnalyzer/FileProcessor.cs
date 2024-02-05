@@ -20,6 +20,12 @@ class FileProcessor
     {
         foreach (var target in config.Targets)
         {
+            //ファイルを初期化
+            File.WriteAllText(target.ResultFilePath, "");
+        }
+        
+        foreach (var target in config.Targets)
+        {
             int matchedFiles = 0;
             int totalMatches = 0;
 
@@ -51,7 +57,8 @@ class FileProcessor
         try
         {
             // ファイルの内容を読み込む
-            string fileContent = File.ReadAllText(filePath);
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            string fileContent = File.ReadAllText(filePath, Encoding.GetEncoding("Shift_JIS"));
             // SQLコメントを特定の文字列に置き換える
             fileContent = ReplaceSqlComments(fileContent);
             bool matchedCondition = false;
@@ -167,7 +174,8 @@ class FileProcessor
     private void ProcessCsVbFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
     {
         // ファイルの内容を読み込む
-        string fileContent = File.ReadAllText(filePath);
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        string fileContent = File.ReadAllText(filePath, Encoding.GetEncoding("Shift_JIS"));
         bool matchedCondition = false;
 
         SyntaxTree tree;
@@ -203,65 +211,6 @@ class FileProcessor
                     combinedArguments.Append(argument.ToString());
                 }
   
-                string currentString = combinedArguments.ToString();
-                if (currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) >= 0
-                    && currentString.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase) < 0
-                    && currentString.IndexOf("UPDATE", StringComparison.OrdinalIgnoreCase) < 0
-                    && currentString.IndexOf("DELETE", StringComparison.OrdinalIgnoreCase) < 0
-                    && currentString.IndexOf("INTO", StringComparison.OrdinalIgnoreCase) < 0
-                    && currentString.IndexOf("ORDER", StringComparison.OrdinalIgnoreCase) < 0
-                    && !MatchesExcludePatterns(currentString, ignoreTables))
-                {
-                    var firstCall = appendOrAppendLineCalls.First();
-                    var lastCall = appendOrAppendLineCalls.Last();
-                    var firstLineNumber = tree.GetLineSpan(firstCall.Span).StartLinePosition.Line + 1;
-                    var lastLineNumber = tree.GetLineSpan(lastCall.Span).StartLinePosition.Line + 1;
-
-                    // 文字列、文字列の行番号を出力
-                    //Console.WriteLine($"ファイル名: {filePath}({firstLineNumber})");
-                    //Console.WriteLine($"一致箇所: {GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber)}");
-
-                    OutputResult(filePath, firstLineNumber, GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber), outputOption, resultFilePath);
-                    // 合致した箇所の総数をインクリメント
-                    totalMatches++;
-                    matchedCondition = true;
-                }
-            }
-        }
-        // 合致したファイルの数をインクリメント
-        if (matchedCondition)
-        {
-            matchedFiles++;
-        }
-    }
-    private void ProcessVbFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
-    {
-        // ファイルの内容を読み込む
-        string fileContent = File.ReadAllText(filePath);
-        bool matchedCondition = false;
-
-        SyntaxTree tree = VisualBasicSyntaxTree.ParseText(fileContent);
-        var root = (CompilationUnitSyntax)tree.GetRoot();
-
-        var methodNodes = root.DescendantNodes().OfType<Microsoft.CodeAnalysis.VisualBasic.Syntax.MethodBlockSyntax>();
-        foreach (var methodNode in methodNodes)
-        {
-            var appendOrAppendLineCalls = methodNode.DescendantNodes()
-                .OfType<InvocationExpressionSyntax>()
-                .Where(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
-                                     (memberAccess.Name.Identifier.Text == "Append" || memberAccess.Name.Identifier.Text == "AppendLine"))
-                .ToList();
-
-            if (appendOrAppendLineCalls.Any())
-            {
-                StringBuilder combinedArguments = new StringBuilder();
-
-                foreach (var call in appendOrAppendLineCalls)
-                {
-                    var argument = call.ArgumentList.Arguments.First();
-                    combinedArguments.Append(argument.ToString());
-                }
-
                 string currentString = combinedArguments.ToString();
                 if (currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) >= 0
                     && currentString.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase) < 0
@@ -353,7 +302,7 @@ class FileProcessor
         else
         {
             // ファイルに書き込む
-            using (StreamWriter writer = new StreamWriter(filePath))
+            using (StreamWriter writer = new StreamWriter(filePath,append:true))
             {
                 writer.WriteLine(content);
             }
