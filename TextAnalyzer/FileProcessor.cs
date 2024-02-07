@@ -86,7 +86,7 @@ class FileProcessor
                 {
                     // 文字列、文字列の行番号を出力
                     int lineNumber = GetLineNumber(fileContent, match.Index + currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase));
-                    int endLineNumber = GetLineNumber(fileContent, match.Index - 1);
+                    int endLineNumber = GetLineNumber(fileContent, match.Index + match.Length - 1);
                     //Console.WriteLine($"ファイル名: {filePath}({lineNumber})");
                     //Console.WriteLine($"一致箇所: {GetSubstringAfterStart(currentString, "SELECT")}");
                     OutputResult(filePath, lineNumber, GetCodeSnippet(fileContent,lineNumber,endLineNumber), outputOption, resultFilePath);
