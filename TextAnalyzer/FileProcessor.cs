@@ -111,9 +111,9 @@ class FileProcessor
     private string ReplaceSqlComments(string input)
     {
         // 正規表現パターン: /* ～ */
-        string blockCommentPattern = @"/\(*.*?)\*/";
+        string blockCommentPattern = @"/\*(.*?)\*/";
         // 正規表現パターン2: -- ～ 改行
-        string lineCommentPattern = @"--.*?$";
+        string lineCommentPattern = @"--.*$";
 
         string result = Regex.Replace(input, blockCommentPattern, match => ReplaceWithoutLineBreaks(match.Value,'@'),RegexOptions.Singleline);
         result = Regex.Replace(result, lineCommentPattern, match => new string('@', match.Length),RegexOptions.Multiline);
