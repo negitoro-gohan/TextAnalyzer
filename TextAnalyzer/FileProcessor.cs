@@ -45,6 +45,7 @@ class FileProcessor
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessCsVbFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
                 }
+                Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
             }
 
             WriteToFile($"ファイル件数: {filePaths.Length}", target.ResultFilePath);
@@ -60,14 +61,14 @@ class FileProcessor
             Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
             string fileContent = File.ReadAllText(filePath, Encoding.GetEncoding("Shift_JIS"));
             // SQLコメントを特定の文字列に置き換える
-            fileContent = ReplaceSqlComments(fileContent);
+            string targetContent = ReplaceSqlComments(fileContent);
             bool matchedCondition = false;
             // 正規表現パターン
             string pattern = @"[^;]+(?=;)";
             Regex regex = new Regex(pattern, RegexOptions.IgnoreCase); // 大文字小文字を無視する
 
             // 正規表現にマッチする文字列を抽出
-            MatchCollection matches = regex.Matches(fileContent);
+            MatchCollection matches = regex.Matches(targetContent);
 
             // 各マッチング文字列について処理を行う
             foreach (Match match in matches)
@@ -85,9 +86,10 @@ class FileProcessor
                 {
                     // 文字列、文字列の行番号を出力
                     int lineNumber = GetLineNumber(fileContent, match.Index + currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase));
+                    int endLineNumber = GetLineNumber(fileContent, match.Index - 1);
                     //Console.WriteLine($"ファイル名: {filePath}({lineNumber})");
                     //Console.WriteLine($"一致箇所: {GetSubstringAfterStart(currentString, "SELECT")}");
-                    OutputResult(filePath, lineNumber, GetSubstringAfterStart(currentString, "SELECT"), outputOption, resultFilePath);
+                    OutputResult(filePath, lineNumber, GetCodeSnippet(fileContent,lineNumber,endLineNumber), outputOption, resultFilePath);
                     // 合致した箇所の総数をインクリメント
                     totalMatches++;
                     matchedCondition = true;
@@ -109,14 +111,21 @@ class FileProcessor
     private string ReplaceSqlComments(string input)
     {
         // 正規表現パターン: /* ～ */
-        string blockCommentPattern = @"/\*.*?\*/";
+        string blockCommentPattern = @"/\(*.*?)\*/";
         // 正規表現パターン2: -- ～ 改行
         string lineCommentPattern = @"--.*?$";
 
-        string result = Regex.Replace(input, blockCommentPattern, match => new string('@', match.Length));
-        result = Regex.Replace(result, lineCommentPattern, match => new string('@', match.Length));
+        string result = Regex.Replace(input, blockCommentPattern, match => ReplaceWithoutLineBreaks(match.Value,'@'),RegexOptions.Singleline);
+        result = Regex.Replace(result, lineCommentPattern, match => new string('@', match.Length),RegexOptions.Multiline);
 
         return result;
+
+    }
+    // 改行以外の文字を指定された文字に置換する
+    private string ReplaceWithoutLineBreaks(string input,char replaceChar)
+    {
+        string replaceText = Regex.Replace(input, @"[^\r\n]", replaceChar.ToString());
+        return replaceText;
 
     }
     // 除外条件に一致するかチェック
@@ -124,9 +133,10 @@ class FileProcessor
     {
         foreach (string pattern in excludePatterns)
         {
-            if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase) || CountString(text, "from") == 1)
-            {
-                return true; // 一致する場合は除外
+            //if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase) || CountString(text, "from") == 1)
+            if (text.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true; // 一致する場合は除外
             }
         }
         return false; // 一致しない場合は通常処理
@@ -179,7 +189,7 @@ class FileProcessor
         bool matchedCondition = false;
 
         SyntaxTree tree;
-        if (Path.GetExtension(filePath).IndexOf(".vb", StringComparison.OrdinalIgnoreCase) >= 0)
+        if (string.Equals(Path.GetExtension(filePath),".vb", StringComparison.OrdinalIgnoreCase))
         {
             tree = VisualBasicSyntaxTree.ParseText(fileContent);
         }
@@ -244,7 +254,7 @@ class FileProcessor
     }
     private string GetCodeSnippet(string sourceCode, int startLine, int endLine)
     {
-        string[] lines = sourceCode.Split('\n');
+        string[] lines = sourceCode.Split("\r\n");
 
         // Adjust startLine and endLine to be within the valid range
         startLine = Math.Max(0, Math.Min(startLine - 1, lines.Length - 1));
@@ -302,7 +312,7 @@ class FileProcessor
         else
         {
             // ファイルに書き込む
-            using (StreamWriter writer = new StreamWriter(filePath,append:true))
+            using (StreamWriter writer = new StreamWriter(filePath, append: true, Encoding.GetEncoding("Shift_JIS")))
             {
                 writer.WriteLine(content);
             }
