@@ -1,19 +1,22 @@
 <Config>
   <!-- 検索対象 -->
-  <Target>
+  <!--<Target>
     <FolderPath>D:\work\analysis\sqlserver</FolderPath>
     <ResultFilePath>D:\work\analysis\result.txt</ResultFilePath>
   </Target>
   <Target>
     <FolderPath>D:\work\analysis\sqlserver2</FolderPath>
     <ResultFilePath>D:\work\analysis\result2.txt</ResultFilePath>
+  </Target> -->
+  <Target>
+    <FolderPath>D:\work\analysis\source\</FolderPath>
+    <ResultFilePath>D:\work\analysis\source\result.txt</ResultFilePath>
   </Target>
-
   <!-- 除外対象のテーブル -->
   <IgnoreTables>
+    <Table>dual</Table>
     <Table>TEST</Table>
-    <Table>TEST2</Table>
   </IgnoreTables>
   <!-- 出力形式のオプション -->
-  <OutputOption>csv</OutputOption>
+  <OutputOption></OutputOption>
 </Config>

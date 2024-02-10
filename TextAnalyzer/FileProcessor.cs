@@ -45,6 +45,11 @@ class FileProcessor
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessCsVbFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
                 }
+                else if (Path.GetExtension(filePath).IndexOf(".bas", StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetExtension(filePath).IndexOf(".frm", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    // FileProcessor クラスを使ってファイルの内容を処理
+                    ProcessBasFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                }
                 Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
             }
 
@@ -87,8 +92,6 @@ class FileProcessor
                     // 文字列、文字列の行番号を出力
                     int lineNumber = GetLineNumber(fileContent, match.Index + currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase));
                     int endLineNumber = GetLineNumber(fileContent, match.Index + match.Length - 1);
-                    //Console.WriteLine($"ファイル名: {filePath}({lineNumber})");
-                    //Console.WriteLine($"一致箇所: {GetSubstringAfterStart(currentString, "SELECT")}");
                     OutputResult(filePath, lineNumber, GetCodeSnippet(fileContent,lineNumber,endLineNumber), outputOption, resultFilePath);
                     // 合致した箇所の総数をインクリメント
                     totalMatches++;
@@ -117,6 +120,22 @@ class FileProcessor
 
         string result = Regex.Replace(input, blockCommentPattern, match => ReplaceWithoutLineBreaks(match.Value,'@'),RegexOptions.Singleline);
         result = Regex.Replace(result, lineCommentPattern, match => new string('@', match.Length),RegexOptions.Multiline);
+
+        return result;
+
+    }// VB5コメントは検索対象外の為、特定の文字列に置き換える
+    private string ReplaceVB5IgnoreStrings(string input)
+    {
+        // 正規表現パターン1: コメント
+        string lineCommentPattern = @"'.*$";
+        // 正規表現パターン2: SELECT CASE文
+        string selectcasePattern = @"SELECT\s+CASE";
+        // 正規表現パターン3: SELECT CASE文
+        string endselectPattern = @"END\s+SELECT";
+
+        string result = Regex.Replace(input, lineCommentPattern, match => new string('@', match.Length), RegexOptions.Multiline);
+        result = Regex.Replace(result, selectcasePattern, match => new string('@', match.Length), RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        result = Regex.Replace(result, endselectPattern, match => new string('@', match.Length), RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
         return result;
 
@@ -235,10 +254,6 @@ class FileProcessor
                     var firstLineNumber = tree.GetLineSpan(firstCall.Span).StartLinePosition.Line + 1;
                     var lastLineNumber = tree.GetLineSpan(lastCall.Span).StartLinePosition.Line + 1;
 
-                    // 文字列、文字列の行番号を出力
-                    //Console.WriteLine($"ファイル名: {filePath}({firstLineNumber})");
-                    //Console.WriteLine($"一致箇所: {GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber)}");
-
                     OutputResult(filePath, firstLineNumber, GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber), outputOption, resultFilePath);
                     // 合致した箇所の総数をインクリメント
                     totalMatches++;
@@ -250,6 +265,56 @@ class FileProcessor
         if (matchedCondition)
         {
             matchedFiles++;
+        }
+    }
+    private void ProcessBasFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
+    {
+        try
+        {
+            // ファイルの内容を読み込む
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            string fileContent = File.ReadAllText(filePath, Encoding.GetEncoding("Shift_JIS"));
+            // コメントを特定の文字列に置き換える
+            string targetContent = ReplaceVB5IgnoreStrings(fileContent);
+            bool matchedCondition = false;
+            // 正規表現パターン
+            string pattern = @"(SUB|FUNCTION)(.*?)END (SUB|FUNCTION)";
+            MatchCollection matches = Regex.Matches(targetContent, pattern, RegexOptions.Singleline | RegexOptions.IgnoreCase);
+
+            // マッチした部分を表示
+            foreach (Match match in matches)
+            {
+                Console.WriteLine("マッチしたテキスト: " + match.Value);
+                Console.WriteLine("------");
+
+                string currentString = match.Value;
+                //条件をチェック
+                    if (currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) >= 0
+                        && currentString.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase) < 0
+                        && currentString.IndexOf("UPDATE", StringComparison.OrdinalIgnoreCase) < 0
+                        && currentString.IndexOf("DELETE", StringComparison.OrdinalIgnoreCase) < 0
+                        && currentString.IndexOf("INTO", StringComparison.OrdinalIgnoreCase) < 0
+                        && currentString.IndexOf("ORDER", StringComparison.OrdinalIgnoreCase) < 0
+                        && !MatchesExcludePatterns(currentString, ignoreTables))
+                {
+                    // 文字列、文字列の行番号を出力
+                    int lineNumber = GetLineNumber(fileContent, match.Index + currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase));
+                    int endLineNumber = GetLineNumber(fileContent, match.Index + match.Length - 1);
+                    OutputResult(filePath, lineNumber, GetCodeSnippet(fileContent, lineNumber, endLineNumber), outputOption, resultFilePath);
+                    // 合致した箇所の総数をインクリメント
+                    totalMatches++;
+                    matchedCondition = true;
+                }
+            }
+            // 合致したファイルの数をインクリメント
+            if (matchedCondition)
+            {
+                matchedFiles++;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"エラーが発生しました: {ex.Message}");
         }
     }
     private string GetCodeSnippet(string sourceCode, int startLine, int endLine)
