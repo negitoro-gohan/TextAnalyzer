@@ -284,9 +284,6 @@ class FileProcessor
             // マッチした部分を表示
             foreach (Match match in matches)
             {
-                Console.WriteLine("マッチしたテキスト: " + match.Value);
-                Console.WriteLine("------");
-
                 string currentString = match.Value;
                 //条件をチェック
                     if (currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) >= 0
