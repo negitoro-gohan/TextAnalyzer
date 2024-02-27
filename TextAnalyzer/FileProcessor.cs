@@ -40,23 +40,26 @@ class FileProcessor
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessSqlFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                    Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
                 }
                 else if (Path.GetExtension(filePath).Equals(".cs", StringComparison.OrdinalIgnoreCase))
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessCsFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                    Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
                 }
                 else if (Path.GetExtension(filePath).Equals(".vb", StringComparison.OrdinalIgnoreCase))
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessVbFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                    Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
                 }
                 else if (Path.GetExtension(filePath).Equals(".bas", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(filePath).Equals(".frm", StringComparison.OrdinalIgnoreCase))
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessBasFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                    Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
                 }
-                Console.WriteLine(DateTime.Now + ":" + filePath + "の調査が完了しました。");
             }
 
             WriteToFile($"ファイル件数: {filePaths.Length}", target.ResultFilePath);
@@ -218,7 +221,7 @@ class FileProcessor
  
         var root = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)tree.GetRoot();
 
-        var methodNodes = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+        var methodNodes = root.DescendantNodes().OfType<Microsoft.CodeAnalysis.CSharp.Syntax.MethodDeclarationSyntax>();
         foreach (var methodNode in methodNodes)
         {
             //Console.WriteLine($"Method: {methodNode.Identifier}");
@@ -278,7 +281,7 @@ class FileProcessor
         
         var root = (Microsoft.CodeAnalysis.VisualBasic.Syntax.CompilationUnitSyntax)tree.GetRoot();
 
-        var methodNodes = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+        var methodNodes = root.DescendantNodes().OfType<Microsoft.CodeAnalysis.VisualBasic.Syntax.MethodBlockSyntax>();
         foreach (var methodNode in methodNodes)
         {
             //Console.WriteLine($"Method: {methodNode.Identifier}");

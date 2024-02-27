@@ -45,7 +45,10 @@ class Program
                     // FileProcessorクラスをインスタンス化し、Configを渡して処理を実行
                     FileProcessor fileProcessor = new FileProcessor(config);
                     fileProcessor.ProcessFiles();
-                    
+
+                    Console.WriteLine("処理が完了しました。");
+                    Console.ReadLine();
+
                 }
                 catch (Exception ex)
                 {
