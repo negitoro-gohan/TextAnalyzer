@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.VisualBasic;
+using Microsoft.CodeAnalysis.VisualBasic.Syntax;
 using Microsoft.VisualBasic;
 
 class FileProcessor
@@ -35,17 +36,22 @@ class FileProcessor
             // フォルダ内のすべてのファイルに対して処理を行う
             foreach (string filePath in filePaths)
             {
-                if (Path.GetExtension(filePath).IndexOf(".sql", StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetExtension(filePath).IndexOf(".txt", StringComparison.OrdinalIgnoreCase) >= 0)
+                if (Path.GetExtension(filePath).Equals(".sql", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(filePath).Equals(".txt", StringComparison.OrdinalIgnoreCase))
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessSqlFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
                 }
-                else if (Path.GetExtension(filePath).IndexOf(".cs", StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetExtension(filePath).IndexOf(".vb", StringComparison.OrdinalIgnoreCase) >= 0)
+                else if (Path.GetExtension(filePath).Equals(".cs", StringComparison.OrdinalIgnoreCase))
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
-                    ProcessCsVbFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                    ProcessCsFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
                 }
-                else if (Path.GetExtension(filePath).IndexOf(".bas", StringComparison.OrdinalIgnoreCase) >= 0 || Path.GetExtension(filePath).IndexOf(".frm", StringComparison.OrdinalIgnoreCase) >= 0)
+                else if (Path.GetExtension(filePath).Equals(".vb", StringComparison.OrdinalIgnoreCase))
+                {
+                    // FileProcessor クラスを使ってファイルの内容を処理
+                    ProcessVbFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
+                }
+                else if (Path.GetExtension(filePath).Equals(".bas", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(filePath).Equals(".frm", StringComparison.OrdinalIgnoreCase))
                 {
                     // FileProcessor クラスを使ってファイルの内容を処理
                     ProcessBasFile(filePath, config.IgnoreTables.Tables, config.OutputOption, target.ResultFilePath, ref matchedFiles, ref totalMatches);
@@ -200,7 +206,7 @@ class FileProcessor
         return cnt;
     }
 
-    private void ProcessCsVbFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
+    private void ProcessCsFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
     {
         // ファイルの内容を読み込む
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -208,16 +214,9 @@ class FileProcessor
         bool matchedCondition = false;
 
         SyntaxTree tree;
-        if (string.Equals(Path.GetExtension(filePath),".vb", StringComparison.OrdinalIgnoreCase))
-        {
-            tree = VisualBasicSyntaxTree.ParseText(fileContent);
-        }
-        else
-        {
-            tree = CSharpSyntaxTree.ParseText(fileContent);
-        }
-
-        var root = (CompilationUnitSyntax)tree.GetRoot();
+        tree = CSharpSyntaxTree.ParseText(fileContent);
+ 
+        var root = (Microsoft.CodeAnalysis.CSharp.Syntax.CompilationUnitSyntax)tree.GetRoot();
 
         var methodNodes = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
         foreach (var methodNode in methodNodes)
@@ -225,8 +224,8 @@ class FileProcessor
             //Console.WriteLine($"Method: {methodNode.Identifier}");
 
             var appendOrAppendLineCalls = methodNode.DescendantNodes()
-                .OfType<InvocationExpressionSyntax>()
-                .Where(invocation => invocation.Expression is MemberAccessExpressionSyntax memberAccess &&
+                .OfType<Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax>()
+                .Where(invocation => invocation.Expression is Microsoft.CodeAnalysis.CSharp.Syntax.MemberAccessExpressionSyntax memberAccess &&
                                      (memberAccess.Name.Identifier.Text == "Append" || memberAccess.Name.Identifier.Text == "AppendLine"))
                 .ToList();
 
@@ -240,6 +239,66 @@ class FileProcessor
                     combinedArguments.Append(argument.ToString());
                 }
   
+                string currentString = combinedArguments.ToString();
+                if (currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) >= 0
+                    && currentString.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase) < 0
+                    && currentString.IndexOf("UPDATE", StringComparison.OrdinalIgnoreCase) < 0
+                    && currentString.IndexOf("DELETE", StringComparison.OrdinalIgnoreCase) < 0
+                    && currentString.IndexOf("INTO", StringComparison.OrdinalIgnoreCase) < 0
+                    && currentString.IndexOf("ORDER", StringComparison.OrdinalIgnoreCase) < 0
+                    && !MatchesExcludePatterns(currentString, ignoreTables))
+                {
+                    var firstCall = appendOrAppendLineCalls.First();
+                    var lastCall = appendOrAppendLineCalls.Last();
+                    var firstLineNumber = tree.GetLineSpan(firstCall.Span).StartLinePosition.Line + 1;
+                    var lastLineNumber = tree.GetLineSpan(lastCall.Span).StartLinePosition.Line + 1;
+
+                    OutputResult(filePath, firstLineNumber, GetCodeSnippet(fileContent, firstLineNumber, lastLineNumber), outputOption, resultFilePath);
+                    // 合致した箇所の総数をインクリメント
+                    totalMatches++;
+                    matchedCondition = true;
+                }
+            }
+        }
+        // 合致したファイルの数をインクリメント
+        if (matchedCondition)
+        {
+            matchedFiles++;
+        }
+    }
+    private void ProcessVbFile(string filePath, List<string> ignoreTables, string outputOption, string resultFilePath, ref int matchedFiles, ref int totalMatches)
+    {
+        // ファイルの内容を読み込む
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        string fileContent = File.ReadAllText(filePath, Encoding.GetEncoding("Shift_JIS"));
+        bool matchedCondition = false;
+
+        SyntaxTree tree;
+        tree = VisualBasicSyntaxTree.ParseText(fileContent);
+        
+        var root = (Microsoft.CodeAnalysis.VisualBasic.Syntax.CompilationUnitSyntax)tree.GetRoot();
+
+        var methodNodes = root.DescendantNodes().OfType<MethodDeclarationSyntax>();
+        foreach (var methodNode in methodNodes)
+        {
+            //Console.WriteLine($"Method: {methodNode.Identifier}");
+
+            var appendOrAppendLineCalls = methodNode.DescendantNodes()
+                .OfType<Microsoft.CodeAnalysis.VisualBasic.Syntax.InvocationExpressionSyntax>()
+                .Where(invocation => invocation.Expression is Microsoft.CodeAnalysis.VisualBasic.Syntax.MemberAccessExpressionSyntax memberAccess &&
+                                     (memberAccess.Name.Identifier.Text == "Append" || memberAccess.Name.Identifier.Text == "AppendLine"))
+                .ToList();
+
+            if (appendOrAppendLineCalls.Any())
+            {
+                StringBuilder combinedArguments = new StringBuilder();
+
+                foreach (var call in appendOrAppendLineCalls)
+                {
+                    var argument = call.ArgumentList.Arguments.First();
+                    combinedArguments.Append(argument.ToString());
+                }
+
                 string currentString = combinedArguments.ToString();
                 if (currentString.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) >= 0
                     && currentString.IndexOf("INSERT", StringComparison.OrdinalIgnoreCase) < 0
