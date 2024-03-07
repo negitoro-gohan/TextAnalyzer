@@ -9,7 +9,7 @@
     <ResultFilePath>D:\work\analysis\result2.txt</ResultFilePath>
   </Target> -->
   <Target>
-    <FolderPath>D:\work\analysis\source\</FolderPath>
+    <FolderPath>D:\work\analysis\sourced\</FolderPath>
     <ResultFilePath>D:\work\analysis\source\result.txt</ResultFilePath>
   </Target>
   <!-- 除外対象のテーブル -->

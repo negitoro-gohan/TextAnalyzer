@@ -46,9 +46,6 @@ class Program
                     FileProcessor fileProcessor = new FileProcessor(config);
                     fileProcessor.ProcessFiles();
 
-                    Console.WriteLine("処理が完了しました。");
-                    Console.ReadLine();
-
                 }
                 catch (Exception ex)
                 {
@@ -64,6 +61,8 @@ class Program
         {
             Console.WriteLine("config.xml ファイルが見つかりませんでした。");
         }
+        Console.WriteLine("処理が完了しました。プログラムを終了してください。");
+        Console.ReadLine();
     }
  
 
